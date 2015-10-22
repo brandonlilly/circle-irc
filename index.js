@@ -1,4 +1,5 @@
 import net from 'net';
+import Rx from 'rx';
 
 const nickname = 'randalthorrrr';
 const fullname = 'Rand AlThor';
@@ -15,18 +16,30 @@ const client = net.connect({ host: 'irc.freenode.net', port: 6667 }, () => {
   }, 10000);
 });
 
-let stream = '';
+const client$ = Rx.Observable.fromEvent(client, 'data')
+  .map(data => data.toString());
 
-client.on('data', (data) => {
-  // console.log('<--', data.toString());
-  stream = stream + data.toString();
-  let idx;
-  while (stream.indexOf('\r\n') !== -1) {
-    idx = stream.indexOf('\r\n');
-    handle(stream.substr(0, idx).trim());
-    stream = stream.substr(idx + 1);
+const brokenLines = () => {
+  let previousLastLine = "";
+  return line => {
+    const lines = (previousLastLine + line).split('\n');
+    previousLastLine = lines[lines.length - 1];
+    return lines.slice(0, -1);
   }
-  // client.end();
+}
+const line$ = client$
+  .flatMap(brokenLines());
+
+const ping$ = line$
+  .filter(line => line.match('^PING'))
+  .map(line => line.split(' ')[1]);
+
+line$.subscribe(line => {
+  console.log('<--', line);
+});
+
+ping$.subscribe(host => {
+  send(`pong ${host}\r\n`);
 });
 
 client.on('end', () => {
@@ -36,13 +49,4 @@ client.on('end', () => {
 function send(text) {
   console.log('--> ' + text);
   client.write(text);
-}
-
-function handle(data) {
-  console.log('<-- ', data);
-
-  const [a, b] = data.split(' ');
-  if (data.match('^PING')) {
-    send('pong ' + b + '\r\n');
-  }
 }
