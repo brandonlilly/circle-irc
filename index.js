@@ -3,17 +3,22 @@ import Rx from 'rx';
 
 const nickname = 'randalthorrrr';
 const fullname = 'Rand AlThor';
+const host = 'irc.freenode.net';
+const port = 6667;
 
-const client = net.connect({ host: 'irc.freenode.net', port: 6667 }, () => {
+const client = net.connect({ host, port }, () => {
   console.log('Connected to server.');
 
-  send(`NICK ${nickname}\r\n`);
-  send(`USER ${nickname} 0 * : ${fullname}\r\n`);
+  setNickname(nickname);
+  setUser(nickname, fullname);
 
   setTimeout(() => {
-    // send('quit\r\n');
-    send('join #kaias\r\n');
+    join('#some_channel');
   }, 10000);
+});
+
+client.on('end', () => {
+  console.log('Disconnected from server.');
 });
 
 const client$ = Rx.Observable.fromEvent(client, 'data')
@@ -39,14 +44,30 @@ line$.subscribe(line => {
 });
 
 ping$.subscribe(host => {
-  send(`pong ${host}\r\n`);
-});
-
-client.on('end', () => {
-  console.log('Disconnected from server.');
+  pong(host)
 });
 
 function send(text) {
   console.log('--> ' + text);
   client.write(text);
+}
+
+function setNickname(nickname) {
+  send(`NICK ${nickname}\r\n`);
+}
+
+function setUser(nickname, fullname) {
+  send(`USER ${fullname} 0 * : ${nickname}\r\n`);
+}
+
+function join(channel) {
+  send(`join ${channel}\r\n`);
+}
+
+function quit() {
+  send('quit\r\n');
+}
+
+function pong(host) {
+  send(`pong ${host}\r\n`);
 }
